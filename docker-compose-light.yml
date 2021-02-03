@@ -1,0 +1,105 @@
+version: "3.3"
+
+services:
+
+  portainer:
+    image: portainer/portainer
+    ports:
+      - "9999:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/portainer_data:/data
+    command: --no-auth
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '1000mb'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+
+  influx-db:
+    image: influxdb:1.7.6
+    ports:
+      - 8086:8086
+    volumes:
+      - /var/lib/influxdb
+    environment:
+      INFLUXDB_USER: influxdb
+      INFLUXDB_USER_PASSWORD: influxdb-pass
+      INFLUXDB_DB: springboot
+    healthcheck:
+      test: "curl -f http://localhost:8086/ping"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '1000mb'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+
+  discovery-service:
+    image: ${DOCKER_USER}/discovery-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8888/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8888:8888/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+
+  user-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics
+    image: ${DOCKER_USER}/user-service:0.0.1-SNAPSHOT
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8081/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8081:8081/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+    depends_on:
+      - user-db
+      - discovery-service
+
+  user-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_PASSWORD: example
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432/tcp"
+    deploy:
+      replicas: 1

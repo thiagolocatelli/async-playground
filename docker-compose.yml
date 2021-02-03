@@ -1,0 +1,183 @@
+version: "3.3"
+
+services:
+
+  discovery-service:
+    image: ${DOCKER_USER}/discovery-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics,logdna
+      VIRTUAL_HOST: discovery-service.127.0.0.1.xip.io
+      LOGDNA_API_KEY: 69ae59287a1baf910d4feb4678a332d0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8888/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8888:8888/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+
+  proxy-service:
+    image: ${DOCKER_USER}/proxy-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics,logdna
+      VIRTUAL_HOST: proxy.127.0.0.1.xip.io
+      LOGDNA_API_KEY: 69ae59287a1baf910d4feb4678a332d0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:9001/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "9001:9001/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '1000mb'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+    depends_on:
+      - discovery-service
+
+  clearing-service:
+    image: ${DOCKER_USER}/clearing-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics,logdna
+      VIRTUAL_HOST: clearing-service.127.0.0.1.xip.io
+      LOGDNA_API_KEY: 69ae59287a1baf910d4feb4678a332d0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8081/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8081:8081/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+    depends_on:
+      - discovery-service
+
+  event-retrieval-service:
+    image: ${DOCKER_USER}/event-retrieval-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics,logdna
+      VIRTUAL_HOST: event-retrieval-service.127.0.0.1.xip.io
+      LOGDNA_API_KEY: 69ae59287a1baf910d4feb4678a332d0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8081/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8082:8082/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+    depends_on:
+      - discovery-service
+      - pulsar
+
+  event-processor-service:
+    image: ${DOCKER_USER}/event-processor-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics,logdna
+      VIRTUAL_HOST: event-processor-service.127.0.0.1.xip.io
+      LOGDNA_API_KEY: 69ae59287a1baf910d4feb4678a332d0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8081/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8083:8083/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+    depends_on:
+      - discovery-service
+      - pulsar
+
+  transfer-service:
+    image: ${DOCKER_USER}/transfer-service:0.0.1-SNAPSHOT
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,metrics,logdna
+      VIRTUAL_HOST: transfer-service.127.0.0.1.xip.io
+      LOGDNA_API_KEY: 69ae59287a1baf910d4feb4678a332d0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8081/actuator/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "8080:8080/tcp"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: '1000mb'
+          cpus: '0.5'
+        reservations:
+          cpus: '0.1'
+          memory: '250mb'
+    depends_on:
+      - transfer-db
+      - discovery-service
+
+  transfer-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_PASSWORD: transfer
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432/tcp"
+    deploy:
+      replicas: 1
+
+  pulsar:
+    image: apachepulsar/pulsar:2.7.0
+    entrypoint: ["bin/pulsar", "standalone"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://127.0.0.1:8000/admin/v2/brokers/health -O /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6650:6650/tcp"
+      - "8000:8080/tcp"
+    deploy:
+      replicas: 1
+

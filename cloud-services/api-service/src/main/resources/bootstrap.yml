@@ -1,0 +1,47 @@
+spring:
+  main:
+    banner-mode: "off"
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+server:
+  port: 9000
+
+info:
+  version: 1.0
+  app:
+    name: ${spring.application.name}
+    description: Rest Apis for ${spring.application.name}
+    contact:
+      name: Thiago Locatelli
+      url: http://github.com/thiagolocatelli
+      email: thiago.locatelli@gmail.com
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,beans,env,loggers,metrics,gateway
+    enabled-by-default: true
+  endpoint:
+    gateway:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles}
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL:http://localhost:8888/eureka}
